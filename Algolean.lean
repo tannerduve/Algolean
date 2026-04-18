@@ -1,4 +1,6 @@
 import Algolean.AddWriter.Basic
+import Algolean.Algorithms.DeutschJozsa
+import Algolean.Algorithms.GHZ
 import Algolean.Algorithms.ListInsertionSort
 import Algolean.Algorithms.ListLinearSearch
 import Algolean.Algorithms.ListOrderedInsert
