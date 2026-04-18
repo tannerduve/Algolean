@@ -177,7 +177,7 @@ theorem QueryProblem.InClass.of_reduces [AddZero Cost] [Preorder Cost]
 
 /-! ## Uniform families of programs
 
-For complexity classes like BQP and P, we need a single program *family*
+For complexity classes like BQP, we need a single program *family*
 `(n : ℕ) → Prog Q (α n)` that works uniformly across input sizes, with a
 polynomial bound on cost as `n` grows. This is the family-indexed lift
 of `QueryProblem` / `InClass`.
