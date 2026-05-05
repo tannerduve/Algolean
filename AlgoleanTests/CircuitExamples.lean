@@ -205,6 +205,8 @@ theorem CircAndSimple_depth (n : ℕ) (x : Fin n → Bool) :
         _ = m + 1 + 1 := by ring
 
 
+
+
 /-- An example "And" circuit with `n` input parameters which are arbitrary circuits,
 splitting the circuit into two halves -/
 def CircAndSplit : (n : ℕ) → (Fin n → FanInTwoCircuit Bool Bool) → FanInTwoCircuit Bool Bool
@@ -212,8 +214,7 @@ def CircAndSplit : (n : ℕ) → (Fin n → FanInTwoCircuit Bool Bool) → FanIn
   | 1,     x  => x ⟨0, by grind⟩
   | n + 2, x  =>
       let half := (n + 2) / 2
-      have h_le : half ≤ n + 2 := Nat.div_le_self _ _
-      let x_left  := CircAndSplit half (Fin.take half h_le x)
+      let x_left  := CircAndSplit half (Fin.take half (by grind) x)
       let x_right := CircAndSplit ((n + 2) - half)
         (fun i => x ⟨i.val + half, by grind⟩)
       mul x_left x_right
@@ -225,8 +226,7 @@ def CircAndSplitSimple : (n : ℕ) → (Fin n → Bool) → FanInTwoCircuit Bool
   | 1,     x  =>  const (x 0)
   | n + 2, x  =>
       let half := (n + 2) / 2
-      have h_le : half ≤ n + 2 := Nat.div_le_self _ _
-      let x_left  := CircAndSplitSimple half (Fin.take half h_le x)
+      let x_left  := CircAndSplitSimple half (Fin.take half (by grind) x)
       let x_right := CircAndSplitSimple ((n + 2) - half)
         (fun i => x ⟨i.val + half, by grind⟩)
       mul x_left x_right
@@ -246,36 +246,22 @@ theorem CircAndSplitSimple_depth (n : ℕ) (x : Fin n → Bool) :
       let N    := n + 2
       unfold CircAndSplitSimple
       simp only [FanInTwoCircuit.depthOf]
-      -- IH applied to both halves
       have h_left : (CircAndSplitSimple half
-            (Fin.take half (by grind : half ≤ N) x)).depthOf
+            (Fin.take half (by grind) x)).depthOf
           ≤ Nat.clog 2 half + 1 :=
         ih half (by grind) _
       have h_right : (CircAndSplitSimple (N - half)
             (fun i : Fin (N - half) => x ⟨i.val + half, by grind⟩)).depthOf
           ≤ Nat.clog 2 (N - half) + 1 :=
         ih (N - half) (by grind) _
-      -- N - half is the ceiling half, which equals (N+1)/2
-      have h_right_eq : N - half = (N + 1) / 2 := by
-        simp [half, N]; grind
-      have h_clog : Nat.clog 2 N = Nat.clog 2 ((N + 1) / 2) + 1 := by
-        rw [Nat.clog_of_two_le (by norm_num) (by grind)]
-        grind
-      -- Left half ≤ ceil half, so clog is monotone
-      have h_left_log : Nat.clog 2 half + 1 ≤ Nat.clog 2 N := by
-        rw [h_clog]
-        apply Nat.add_le_add_right
-        apply Nat.clog_mono_right
-        simp only [half, N]; grind
-      have h_right_log : Nat.clog 2 (N - half) + 1 ≤ Nat.clog 2 N := by
-        rw [h_clog, h_right_eq]
-      have h_max : 1 +
-            max (CircAndSplitSimple half (Fin.take half (by grind : half ≤ N) x)).depthOf
-                (CircAndSplitSimple (N - half)
-                (fun i : Fin (N - half) => x ⟨i.val + half, by grind⟩)).depthOf
-          ≤ Nat.clog 2 N + 1 := by
-        grind
-      grind
+      rw [Nat.add_comm (Nat.clog 2 (n + 2)) 1]
+      apply Nat.add_le_add_left
+      apply max_le <;>
+        apply Nat.le_trans (by assumption) (by
+          conv_rhs => rw [Nat.clog_of_two_le (by decide) (by grind)]
+          apply Nat.add_le_add_right
+          apply Nat.clog_mono_right
+          grind)
 
 /-- The size of the equally split "And" circuit with 0 constant parameters
     is less than or equal 1 -/
@@ -298,9 +284,9 @@ theorem CircAndSplitSimple_size_pos (n : ℕ) (hn : 0 < n) (x : Fin n → Bool) 
     | n + 2 =>
       unfold CircAndSplitSimple
       let half := (n + 2) / 2
-      have h_le : half ≤ n + 2 := by grind
-      let x_left := CircAndSplitSimple half (Fin.take half h_le x)
-      let x_right := CircAndSplitSimple (n + 2 - half) (fun i => x ⟨i.val + half, by grind⟩)
+      let x_left := CircAndSplitSimple half (Fin.take half (by grind) x)
+      let x_right := CircAndSplitSimple (n + 2 - half)
+        (fun i => x ⟨i.val + half, by grind⟩)
       change (x_left.mul x_right).circuitSize ≤ 2 * (n + 2) - 1
       have ⟨h_left, h_right⟩ : x_left.circuitSize ≤ 2 * half - 1 ∧
                           x_right.circuitSize ≤ 2 * (n + 2 - half) - 1 := by
