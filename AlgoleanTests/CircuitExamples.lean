@@ -205,6 +205,99 @@ theorem CircAndSimple_depth (n : ℕ) (x : Fin n → Bool) :
         _ = m + 1 + 1 := by ring
 
 
+
+
+/-- An example "And" circuit with `n` input parameters which are arbitrary circuits,
+splitting the circuit into two halves -/
+def CircAndSplit : (n : ℕ) → (Fin n → FanInTwoCircuit Bool Bool) → FanInTwoCircuit Bool Bool
+  | 0,     _  => const true
+  | 1,     x  => x ⟨0, by grind⟩
+  | n + 2, x  =>
+      let half := (n + 2) / 2
+      let x_left  := CircAndSplit half (Fin.take half (by grind) x)
+      let x_right := CircAndSplit ((n + 2) - half)
+        (fun i => x ⟨i.val + half, by grind⟩)
+      mul x_left x_right
+
+/-- An example "And" circuit with `n` input parameters which are constants,
+ splitting the circuit into two halves -/
+def CircAndSplitSimple : (n : ℕ) → (Fin n → Bool) → FanInTwoCircuit Bool Bool
+  | 0,     _  => const true
+  | 1,     x  =>  const (x 0)
+  | n + 2, x  =>
+      let half := (n + 2) / 2
+      let x_left  := CircAndSplitSimple half (Fin.take half (by grind) x)
+      let x_right := CircAndSplitSimple ((n + 2) - half)
+        (fun i => x ⟨i.val + half, by grind⟩)
+      mul x_left x_right
+
+/-- The depth of the equally split "And" circuit with `n` input constant parameters
+    has O(log(n)) bound -/
+theorem CircAndSplitSimple_depth (n : ℕ) (x : Fin n → Bool) :
+    (CircAndSplitSimple n x).depthOf ≤ Nat.clog 2 n + 1 := by
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    match n with
+    | 0
+    | 1
+    | 2 => simp [CircAndSplitSimple, FanInTwoCircuit.depthOf]
+    | n + 2 =>
+      let half := (n + 2) / 2
+      let N    := n + 2
+      unfold CircAndSplitSimple
+      simp only [FanInTwoCircuit.depthOf]
+      have h_left : (CircAndSplitSimple half
+            (Fin.take half (by grind) x)).depthOf
+          ≤ Nat.clog 2 half + 1 :=
+        ih half (by grind) _
+      have h_right : (CircAndSplitSimple (N - half)
+            (fun i : Fin (N - half) => x ⟨i.val + half, by grind⟩)).depthOf
+          ≤ Nat.clog 2 (N - half) + 1 :=
+        ih (N - half) (by grind) _
+      rw [Nat.add_comm (Nat.clog 2 (n + 2)) 1]
+      apply Nat.add_le_add_left
+      apply max_le <;>
+        apply Nat.le_trans (by assumption) (by
+          conv_rhs => rw [Nat.clog_of_two_le (by decide) (by grind)]
+          apply Nat.add_le_add_right
+          apply Nat.clog_mono_right
+          grind)
+
+/-- The size of the equally split "And" circuit with 0 constant parameters
+    is less than or equal 1 -/
+theorem CircAndSplitSimple_size_zero (x : Fin 0 → Bool) :
+    (CircAndSplitSimple 0 x).circuitSize ≤ 1 := by
+      simp only [CircAndSplitSimple,circuitSize, subcircuits.eq_1,
+      insert_empty_eq, Finset.card_singleton, Std.le_refl]
+
+/-- The size of the equally split "And" circuit with n > 0 input constant parameters
+    has O(n) bound -/
+theorem CircAndSplitSimple_size_pos (n : ℕ) (hn : 0 < n) (x : Fin n → Bool) :
+    (CircAndSplitSimple n x).circuitSize ≤ 2 * n - 1 := by
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    match n with
+    | 1 =>
+      simp only [CircAndSplitSimple,circuitSize, subcircuits.eq_1,
+                 insert_empty_eq, Finset.card_singleton,
+                 Std.le_refl]
+    | n + 2 =>
+      unfold CircAndSplitSimple
+      let half := (n + 2) / 2
+      let x_left := CircAndSplitSimple half (Fin.take half (by grind) x)
+      let x_right := CircAndSplitSimple (n + 2 - half)
+        (fun i => x ⟨i.val + half, by grind⟩)
+      change (x_left.mul x_right).circuitSize ≤ 2 * (n + 2) - 1
+      have ⟨h_left, h_right⟩ : x_left.circuitSize ≤ 2 * half - 1 ∧
+                          x_right.circuitSize ≤ 2 * (n + 2 - half) - 1 := by
+        constructor <;> (apply ih <;> grind)
+      have h_mul_size : (x_left.mul x_right).circuitSize ≤
+      1 + x_left.circuitSize + x_right.circuitSize := by
+         grind [circuitSize, subcircuits, Finset.card_insert_le,
+         Finset.card_union_le, fanInTwocircuitSize_eq_subcircuits_card]
+      grind
+
+
 -- /--
 -- info: true
 -- -/

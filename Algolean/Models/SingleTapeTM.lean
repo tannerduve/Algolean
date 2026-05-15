@@ -124,7 +124,7 @@ def TMModel (tm : SingleTapeTM Symbol) :
     | .move cfg dir =>
         match dir with
         | .Left => {BiTape := cfg.BiTape.move_left, state := cfg.state}
-        | .Right => {BiTape := cfg.BiTape.move_left, state := cfg.state}
+        | .Right => {BiTape := cfg.BiTape.move_right, state := cfg.state}
         | .Stop => cfg
     | .update cfg st => {BiTape := cfg.BiTape, state := st}
   cost
