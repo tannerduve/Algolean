@@ -122,12 +122,11 @@ theorem compose_eval [AddZero c₁] {P : Prog Q₁ α}
     ((P.extend Q₂).reduceProg (r₁.compose r₂)).eval M₃ = P.eval M₁ := by
   simpa using Prog.reduceProg_eval P r₁ M₁ M₃ h₁
 
-theorem compose_time [AddZero c₁] [AddCommMonoid c₃] {P : Prog Q₁ α}
-    {r₁ : Reduction Q₁ Q₃} {r₂ : Reduction Q₂ Q₃}
-    {M₁ : Model Q₁ c₁} {M₃ : Model Q₃ c₃}
-    (h₁ : ∀ {ι} (q : Q₁ ι), (r₁.reduce q).eval M₃ = M₁.evalQuery q) :
+@[simp, grind =]
+theorem compose_time [AddCommMonoid c₃] {P : Prog Q₁ α}
+    {r₁ : Reduction Q₁ Q₃} {r₂ : Reduction Q₂ Q₃} {M₃ : Model Q₃ c₃} :
     ((P.extend Q₂).reduceProg (r₁.compose r₂)).time M₃ =
-      (P.liftM (fun q => AddWriter.mk (M₁.evalQuery q) ((r₁.reduce q).time M₃))).tell := by
-  simpa using Prog.reduceProg_time P r₁ M₁ M₃ h₁
+      (P.reduceProg r₁).time M₃ := by
+  simp
 
 end Algolean.Algorithms
