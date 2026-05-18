@@ -115,14 +115,14 @@ theorem Prog.extend_time {Q₁ α Q₂ c₁ c₂} [AddCommMonoid c₁] [AddCommM
     simp [extend, ih]
 
 @[simp]
-theorem compose_eval [AddZero c₁] [AddZero c₂] {P : Prog Q₁ α}
+theorem compose_eval [AddZero c₁] {P : Prog Q₁ α}
     {r₁ : Reduction Q₁ Q₃} {r₂ : Reduction Q₂ Q₃}
     {M₁ : Model Q₁ c₁} {M₃ : Model Q₃ c₃}
     (h₁ : ∀ {ι} (q : Q₁ ι), (r₁.reduce q).eval M₃ = M₁.evalQuery q) :
     ((P.extend Q₂).reduceProg (r₁.compose r₂)).eval M₃ = P.eval M₁ := by
   simpa using Prog.reduceProg_eval P r₁ M₁ M₃ h₁
 
-theorem compose_time [AddCommMonoid c₁] [AddCommMonoid c₂] [AddCommMonoid c₃] {P : Prog Q₁ α}
+theorem compose_time [AddZero c₁] [AddCommMonoid c₃] {P : Prog Q₁ α}
     {r₁ : Reduction Q₁ Q₃} {r₂ : Reduction Q₂ Q₃}
     {M₁ : Model Q₁ c₁} {M₃ : Model Q₃ c₃}
     (h₁ : ∀ {ι} (q : Q₁ ι), (r₁.reduce q).eval M₃ = M₁.evalQuery q) :
