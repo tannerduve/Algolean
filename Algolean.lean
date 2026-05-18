@@ -18,4 +18,5 @@ public import Algolean.Models.ReadOnlyVec
 public import Algolean.Models.ReadWriteVec
 public import Algolean.Models.RobertsonWebb
 public import Algolean.Models.SingleTapeTM
+public import Algolean.QueryComposition
 public import Algolean.QueryModel
