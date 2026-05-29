@@ -1,6 +1,7 @@
 module  -- shake: keep-all
 
 public import Algolean.AddWriter.Basic
+public import Algolean.Algorithms.Circuits.FanInTwo.LogAnd
 public import Algolean.Algorithms.KMPPatternSearch
 public import Algolean.Algorithms.ListInsertionSort
 public import Algolean.Algorithms.ListLinearSearch
