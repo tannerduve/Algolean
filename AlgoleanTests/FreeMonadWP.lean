@@ -7,12 +7,15 @@ Authors: Tanner Duve
 module
 
 public import Algolean.FreeWP.Effects
+public import Algolean.Models.ReadOnlyVec
 public import Std.Tactic.Do
 
 /-!
 Examples for WP in `Algolean.FreeWP.WP`: instance resolution,
-a `Triple` on a `FreeState` program discharged by `mvcgen`, and a custom `CounterF` effect with
-its own logical handler.
+a `Triple` on a `FreeState` program discharged by `mvcgen`, a custom `CounterF` effect with
+its own logical handler, sum/failure/demonic effects, and — connecting the WP framework to this
+repository's query model — Hoare triples about query-model programs `Prog Q α` against a handler
+derived from a `Model Q Cost` (illustrated on `ReadOnlyVec`).
 -/
 
 @[expose] public section
@@ -230,5 +233,68 @@ example {Q : PostCond Bool .pure} :
     match b with
     | true => ht
     | false => hf
+
+/-! ### Query-model programs
+
+The repository's query model defines `Prog Q α := FreeM Q α`, so the WP framework applies to
+query-model algorithms verbatim — `Prog` *is* a `FreeM` program. The missing piece is a logical
+handler: a `Model Q Cost` already carries an interpreter `evalQuery : Q ι → ι`, and reading it
+as an interpreter into `Id` gives a handler at the pure post-shape `.pure`, against which we can
+state Hoare triples about the *result value* a query program computes under that model.
+
+We illustrate with `ReadOnlyVec`, the query type for read-only vector access, and its canonical
+cost model `ReadOnlyVec.natCost`. -/
+
+open Algolean Algolean.Algorithms
+
+/-- The logical handler induced by a `Model Q Cost`: interpret each query through the model's
+`evalQuery` into `Id` (where `pure` is the identity), then take its WP at the pure post-shape.
+This is the bridge that turns the query model into a `Std.Do` effect, so `mvcgen`/`Triple`
+reasoning works on any `Prog Q α`. -/
+def modelHandler {Q : Type → Type} {Cost : Type} (M : Model Q Cost) : LHandler Q .pure :=
+  LHandler.ofInterp (m := Id) (fun _ q => M.evalQuery q)
+
+/-- Register `ReadOnlyVec.natCost` as the default handler for read-only-vector programs, so the
+global `WP (Prog (ReadOnlyVec α)) .pure` instance fires. -/
+instance instHasHandlerReadOnlyVec {α : Type} : HasHandler (ReadOnlyVec α) .pure where
+  handler := modelHandler ReadOnlyVec.natCost
+
+/-- Adequacy for the query model: the WP of a `ReadOnlyVec` program agrees with the WP of its
+`Id`-interpretation under `natCost`, i.e. with what the program actually `eval`uates to. -/
+theorem ReadOnlyVec.wp_eq_wp_interp {α β : Type} (P : Prog (ReadOnlyVec α) β) :
+    wp P = wp (P.liftM (fun {_} q => (ReadOnlyVec.natCost.evalQuery q : Id _))) :=
+  wpH_ofInterp_eq_wp_liftM (m := Id)
+    (fun _ q => ReadOnlyVec.natCost.evalQuery q) P
+
+/-- Hoare spec for a single read: to establish postcondition `Q` after `read a i`, it suffices
+that `Q` holds of the value `a[i]` that the model returns. -/
+@[spec]
+theorem Spec.read_ReadOnlyVec {α : Type} {n : Nat} (a : Vector α n) (i : Fin n)
+    {Q : PostCond α .pure} :
+    Triple (ReadOnlyVec.read a i : Prog (ReadOnlyVec α) α)
+      (Q.1 a[i]) Q :=
+  Triple.iff.mpr SPred.entails.rfl
+
+/-- Read indices `i` then `j` of a vector and return the pair of values. Queries lift into `Prog`
+automatically through the `CoeOut` coercion, so no explicit `lift` is needed. -/
+def readTwo {α : Type} {n : Nat} (a : Vector α n) (i j : Fin n) :
+    Prog (ReadOnlyVec α) (α × α) := do
+  let x ← ReadOnlyVec.read a i
+  let y ← ReadOnlyVec.read a j
+  pure (x, y)
+
+/-- Functional correctness of `readTwo`: it returns exactly `(a[i], a[j])`. The two `read`
+specs compose through the `bind` rule, and `mvcgen` discharges the program. -/
+example {α : Type} {n : Nat} (a : Vector α n) (i j : Fin n) :
+    ⦃⌜True⌝⦄ (readTwo a i j) ⦃⇓ r => ⌜r = (a[i], a[j])⌝⦄ := by
+  mvcgen
+
+/-- A read program whose result depends on the data: read index `i`, and if the value equals
+`x`, the answer is `true`. The triple shows the verifier sees the concrete element `a[i]`. -/
+example {n : Nat} (a : Vector Nat n) (i : Fin n) (x : Nat) :
+    ⦃⌜True⌝⦄
+      (do let v ← ReadOnlyVec.read a i; pure (v == x) : Prog (ReadOnlyVec Nat) Bool)
+    ⦃⇓ r => ⌜r = (a[i] == x)⌝⦄ := by
+  mvcgen
 
 end AlgoleanTests.FreeMonadWP
