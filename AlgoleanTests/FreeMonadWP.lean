@@ -236,44 +236,28 @@ example {Q : PostCond Bool .pure} :
 
 /-! ### Query-model programs
 
-The repository's query model defines `Prog Q α := FreeM Q α`, so the WP framework applies to
-query-model algorithms verbatim — `Prog` *is* a `FreeM` program. The missing piece is a logical
-handler: a `Model Q Cost` already carries an interpreter `evalQuery : Q ι → ι`, and reading it
-as an interpreter into `Id` gives a handler at the pure post-shape `.pure`, against which we can
-state Hoare triples about the *result value* a query program computes under that model.
+The repository's query model defines `Prog Q α := FreeM Q α`, and `Algolean.QueryModel` wires every
+query model into this WP framework: `Model.handler` reads a logical handler off a model's
+`evalQuery` at the pure post-shape, a `HasModel` instance registers a query type's default model,
+and the generic `Spec.query` discharges single queries under `mvcgen`. So Hoare triples about the
+*result value* a query program computes are available with no per-example setup.
 
-We illustrate with `ReadOnlyVec`, the query type for read-only vector access, and its canonical
-cost model `ReadOnlyVec.natCost`. -/
+We illustrate with `ReadOnlyVec`, whose `HasModel (ReadOnlyVec α) ℕ` instance (via
+`ReadOnlyVec.natCost`, in `Algolean.Models.ReadOnlyVec`) makes the global
+`WP (Prog (ReadOnlyVec α)) .pure` instance fire automatically. -/
 
 open Algolean Algolean.Algorithms
 
-/-- The logical handler induced by a `Model Q Cost`: interpret each query through the model's
-`evalQuery` into `Id` (where `pure` is the identity), then take its WP at the pure post-shape.
-This is the bridge that turns the query model into a `Std.Do` effect, so `mvcgen`/`Triple`
-reasoning works on any `Prog Q α`. -/
-def modelHandler {Q : Type → Type} {Cost : Type} (M : Model Q Cost) : LHandler Q .pure :=
-  LHandler.ofInterp (m := Id) (fun _ q => M.evalQuery q)
+/-- The WP framework is available on query programs with no local setup — the handler instance is
+generated from the registered model. -/
+example {α : Type} : WP (Prog (ReadOnlyVec α)) .pure := inferInstance
 
-/-- Register `ReadOnlyVec.natCost` as the default handler for read-only-vector programs, so the
-global `WP (Prog (ReadOnlyVec α)) .pure` instance fires. -/
-instance instHasHandlerReadOnlyVec {α : Type} : HasHandler (ReadOnlyVec α) .pure where
-  handler := modelHandler ReadOnlyVec.natCost
-
-/-- Adequacy for the query model: the WP of a `ReadOnlyVec` program agrees with the WP of its
-`Id`-interpretation under `natCost`, i.e. with what the program actually `eval`uates to. -/
-theorem ReadOnlyVec.wp_eq_wp_interp {α β : Type} (P : Prog (ReadOnlyVec α) β) :
+/-- Adequacy, specialized to `ReadOnlyVec` from the generic `Model.wp_eq_wp_interp`: the WP of a
+program agrees with the WP of its `Id`-interpretation under `natCost`, i.e. with what the program
+actually `eval`uates to. -/
+example {α β : Type} (P : Prog (ReadOnlyVec α) β) :
     wp P = wp (P.liftM (fun {_} q => (ReadOnlyVec.natCost.evalQuery q : Id _))) :=
-  wpH_ofInterp_eq_wp_liftM (m := Id)
-    (fun _ q => ReadOnlyVec.natCost.evalQuery q) P
-
-/-- Hoare spec for a single read: to establish postcondition `Q` after `read a i`, it suffices
-that `Q` holds of the value `a[i]` that the model returns. -/
-@[spec]
-theorem Spec.read_ReadOnlyVec {α : Type} {n : Nat} (a : Vector α n) (i : Fin n)
-    {Q : PostCond α .pure} :
-    Triple (ReadOnlyVec.read a i : Prog (ReadOnlyVec α) α)
-      (Q.1 a[i]) Q :=
-  Triple.iff.mpr SPred.entails.rfl
+  ReadOnlyVec.natCost.wp_eq_wp_interp P
 
 /-- Read indices `i` then `j` of a vector and return the pair of values. Queries lift into `Prog`
 automatically through the `CoeOut` coercion, so no explicit `lift` is needed. -/
