@@ -10,8 +10,6 @@ public import Algolean.Models.ReadWriteVec
 public import Mathlib.Data.List.Sort
 public import Std.Tactic.Do
 
-@[expose] public section
-
 /-!
 # Bubble sort in the read/write vector query model
 
@@ -38,6 +36,8 @@ reasoning modular:
 - `bubbleSort_perm` : `bubbleSort` returns a permutation of its input.
 - `bubbleSort_sorted` : `bubbleSort` returns a sorted vector (for a total, transitive `le`).
 -/
+
+@[expose] public section
 
 namespace Algolean
 
@@ -168,11 +168,15 @@ invariant, then discharges the (concrete, `grind`-friendly) verification conditi
 set_option mvcgen.warning false in
 /-- One pass deposits the maximum of `[0, bound]` at `bound`, preserves the sorted suffix above,
 and permutes the vector. -/
-theorem bubblePass_spec (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
-    (htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true)
+theorem bubblePass_spec (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
+    [IsTrans α (fun a b => le a b = true)]
     (bound : Nat) (hb : bound < n) (v : Vector α n) (hpre : SortedFrom le v (bound + 1)) :
     ⦃⌜True⌝⦄ bubblePass le bound hb v
       ⦃⇓w => ⌜MaxAt le w bound ∧ SortedFrom le w (bound + 1) ∧ w.toList.Perm v.toList⌝⦄ := by
+  have htot : ∀ a b : α, le a b = true ∨ le b a = true :=
+    fun a b => Std.Total.total (r := fun a b : α => le a b = true) a b
+  have htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true :=
+    fun a b c => IsTrans.trans (r := fun a b => le a b = true) a b c
   have hrefl : ∀ a, le a a = true := fun a => (htot a a).elim id id
   mvcgen [bubblePass] invariants
     · ⇓⟨xs, w⟩ => ⌜MaxAt le w xs.prefix.length ∧ SortedFrom le w (bound + 1)
@@ -206,41 +210,41 @@ theorem bubblePass_spec (le : α → α → Bool) (htot : ∀ a b : α, le a b =
 
 set_option mvcgen.warning false in
 /-- `bubbleSort` is correct: it sorts and permutes its input (for a total, transitive `le`). -/
-theorem bubbleSort_spec (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
-    (htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true) (v : Vector α n) :
+theorem bubbleSort_spec (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
+    [IsTrans α (fun a b => le a b = true)] (v : Vector α n) :
     ⦃⌜True⌝⦄ bubbleSort le v ⦃⇓w => ⌜SortedFrom le w 0 ∧ w.toList.Perm v.toList⌝⦄ := by
   mvcgen [bubbleSort, bubblePass_spec] invariants
     · ⇓⟨xs, w⟩ => ⌜SortedFrom le w (n - xs.prefix.length) ∧ w.toList.Perm v.toList⌝
-  case vc3.hpre =>
+  case vc1.hpre =>
     have hsort := (‹SortedFrom le _ _ ∧ List.Perm _ _›).1
     have hcb := (‹Fin n› : Fin n).isLt
     rw [fin_cur_eq ‹List.finRange n = _ ++ _ :: _›] at hcb ⊢
     rwa [sub_one_sub_add _ hcb]
-  case vc4.step.success =>
+  case vc2.step.success =>
     obtain ⟨hmax, hsort, hperm⟩ := ‹MaxAt le _ _ ∧ SortedFrom le _ _ ∧ List.Perm _ _›
     have hperm0 := (‹SortedFrom le _ _ ∧ List.Perm _ _›).2
     have key := sortedFrom_of_maxAt le _ _ hmax hsort
     rw [fin_cur_eq ‹List.finRange n = _ ++ _ :: _›] at key
     exact ⟨by simp only [List.length_append, List.length_cons, List.length_nil]; rwa [sub_succ],
       hperm.trans hperm0⟩
-  case vc5.pre =>
+  case vc3.pre =>
     exact ⟨fun p q _ hq => absurd (by simpa using hq) (by have := q.isLt; omega), List.Perm.refl _⟩
-  case vc6.post.success =>
+  case vc4.post.success =>
     obtain ⟨h1, h2⟩ := ‹SortedFrom le _ _ ∧ List.Perm _ _›
     rw [List.length_finRange, Nat.sub_self] at h1
     exact ⟨h1, h2⟩
 
 /-- `bubbleSort` returns a permutation of its input. -/
-theorem bubbleSort_perm (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
-    (htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true) (v : Vector α n) :
+theorem bubbleSort_perm (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
+    [IsTrans α (fun a b => le a b = true)] (v : Vector α n) :
     ((bubbleSort le v).eval Vec.natCost).toList.Perm v.toList :=
-  (eval_of_triple (bubbleSort_spec le htot htr v)).2
+  (eval_of_triple (bubbleSort_spec le v)).2
 
 /-- `bubbleSort` returns a sorted vector, for a total and transitive `le`. -/
-theorem bubbleSort_sorted (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
-    (htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true) (v : Vector α n) :
+theorem bubbleSort_sorted (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
+    [IsTrans α (fun a b => le a b = true)] (v : Vector α n) :
     ((bubbleSort le v).eval Vec.natCost).toList.Pairwise (fun a b => le a b = true) :=
-  sortedFrom_zero_pairwise (eval_of_triple (bubbleSort_spec le htot htr v)).1
+  sortedFrom_zero_pairwise (eval_of_triple (bubbleSort_spec le v)).1
 
 end Algorithms
 
