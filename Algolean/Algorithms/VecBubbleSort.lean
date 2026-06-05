@@ -56,11 +56,11 @@ def bubblePass (le : α → α → Bool) (bound : Nat) (hb : bound < n) (v : Vec
     Prog (Vec α) (Vector α n) := do
   let mut v := v
   for j in List.finRange bound do
-    let a ← (Vec.read v ⟨j, by omega⟩      : Prog (Vec α) α)
-    let b ← (Vec.read v ⟨j + 1, by omega⟩  : Prog (Vec α) α)
+    let a ← (Vec.read v ⟨j, by lia⟩      : Prog (Vec α) α)
+    let b ← (Vec.read v ⟨j + 1, by lia⟩  : Prog (Vec α) α)
     if !le a b then
-      v ← (Vec.write v ⟨j, by omega⟩     b : Prog (Vec α) (Vector α n))
-      v ← (Vec.write v ⟨j + 1, by omega⟩ a : Prog (Vec α) (Vector α n))
+      v ← (Vec.write v ⟨j, by lia⟩     b : Prog (Vec α) (Vector α n))
+      v ← (Vec.write v ⟨j + 1, by lia⟩ a : Prog (Vec α) (Vector α n))
   return v
 
 /--
@@ -70,7 +70,7 @@ Bubble sort in the `Vec` query model: run `n` bubbling passes with shrinking bou
 def bubbleSort (le : α → α → Bool) (v : Vector α n) : Prog (Vec α) (Vector α n) := do
   let mut v := v
   for i in List.finRange n do
-    v ← bubblePass le (n - 1 - i) (by omega) v
+    v ← bubblePass le (n - 1 - i) (by lia) v
   return v
 
 /-! ### Invariants and pointwise lemmas
@@ -92,7 +92,7 @@ def SortedFrom (le : α → α → Bool) (w : Vector α n) (b : Nat) : Prop :=
 /-- In a `finRange` split, the cursor element sits at the prefix length. -/
 private theorem fin_cur_eq {pref suff : List (Fin n)} {cur : Fin n}
     (h : List.finRange n = pref ++ cur :: suff) : (cur : Nat) = pref.length := by
-  have hlt : pref.length < n := by have := congrArg List.length h; simp at this; omega
+  have hlt : pref.length < n := by have := congrArg List.length h; simp at this; lia
   have h2 := congrArg (fun l => l[pref.length]?) h
   simp only [List.getElem?_append_right (Nat.le_refl pref.length), Nat.sub_self,
     List.getElem?_cons_zero, List.getElem_finRange,
@@ -106,33 +106,39 @@ private lemma set_set_toList_perm (w : Vector α n) (i j : Nat) (hi : i < n) (hj
     List.set_set_perm (as := w.toList) (by simpa using hi) (by simpa using hj)
 
 /-- After swapping out-of-order `w[m], w[m+1]`, the prefix maximum moves to `m+1`. -/
-private lemma maxAt_swap (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
+private lemma maxAt_swap (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
     (w : Vector α n) (m : Nat) (hm : m + 1 < n) (hmax : MaxAt le w m)
-    (hsw : le (w[m]'(by omega)) (w[m + 1]'hm) = false) :
-    MaxAt le ((w.set m (w[m + 1]'hm) (by omega)).set (m + 1) (w[m]'(by omega)) hm) (m + 1) := by
+    (hsw : le (w[m]'(by lia)) (w[m + 1]'hm) = false) :
+    MaxAt le ((w.set m (w[m + 1]'hm) (by lia)).set (m + 1) (w[m]'(by lia)) hm) (m + 1) := by
   intro p q hp hq
-  have hcmp := (htot (w[m]'(by omega)) (w[m + 1]'hm)).resolve_left (by simp [hsw])
-  have key : ∀ r : Fin n, (r : Nat) ≤ m → le w[r] (w[m]'(by omega)) = true :=
-    fun r hr => hmax r ⟨m, by omega⟩ hr rfl
+  have htot : ∀ a b : α, le a b = true ∨ le b a = true :=
+    Std.Total.total (r := fun a b : α => le a b = true)
+  have hcmp := (htot (w[m]'(by lia)) (w[m + 1]'hm)).resolve_left (by simp [hsw])
+  have key : ∀ r : Fin n, (r : Nat) ≤ m → le w[r] (w[m]'(by lia)) = true :=
+    fun r hr => hmax r ⟨m, by lia⟩ hr rfl
   grind
 
 /-- When the pair is already in order, the prefix maximum still extends to `m+1`. -/
-private lemma maxAt_noswap (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
-    (htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true)
+private lemma maxAt_noswap (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
+    [IsTrans α (fun a b => le a b = true)]
     (w : Vector α n) (m : Nat) (hm : m + 1 < n) (hmax : MaxAt le w m)
-    (hns : le (w[m]'(by omega)) (w[m + 1]'hm) = true) : MaxAt le w (m + 1) := by
+    (hns : le (w[m]'(by lia)) (w[m + 1]'hm) = true) : MaxAt le w (m + 1) := by
   intro p q hp hq
-  have key : ∀ r : Fin n, (r : Nat) ≤ m → le w[r] (w[m]'(by omega)) = true :=
-    fun r hr => hmax r ⟨m, by omega⟩ hr rfl
+  have htot : ∀ a b : α, le a b = true ∨ le b a = true :=
+    Std.Total.total (r := fun a b : α => le a b = true)
+  have htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true :=
+    fun a b c => IsTrans.trans (r := fun a b : α => le a b = true) a b c
+  have key : ∀ r : Fin n, (r : Nat) ≤ m → le w[r] (w[m]'(by lia)) = true :=
+    fun r hr => hmax r ⟨m, by lia⟩ hr rfl
   grind
 
 /-- A swap strictly below the boundary `b` preserves the sorted suffix `[b, n)`. -/
 private lemma sortedFrom_swap (le : α → α → Bool) (w : Vector α n) (m b : Nat)
     (hm : m + 1 < n) (hmb : m + 1 < b) (hsort : SortedFrom le w b) :
-    SortedFrom le ((w.set m (w[m + 1]'hm) (by omega)).set (m + 1) (w[m]'(by omega)) hm) b := by
+    SortedFrom le ((w.set m (w[m + 1]'hm) (by lia)).set (m + 1) (w[m]'(by lia)) hm) b := by
   intro p q hp hq
-  have e_m := hsort ⟨m, by omega⟩ q (show m ≤ (q : Nat) by omega) hq
-  have e_m1 := hsort ⟨m + 1, hm⟩ q (show m + 1 ≤ (q : Nat) by omega) hq
+  have e_m := hsort ⟨m, by lia⟩ q (show m ≤ (q : Nat) by lia) hq
+  have e_m1 := hsort ⟨m + 1, hm⟩ q (show m + 1 ≤ (q : Nat) by lia) hq
   have hpq := hsort p q hp hq
   grind
 
@@ -141,13 +147,15 @@ private lemma sortedFrom_of_maxAt (le : α → α → Bool) (w : Vector α n) (k
     (hmax : MaxAt le w k) (hsort : SortedFrom le w (k + 1)) : SortedFrom le w k := by
   intro p q hp hq
   rcases Nat.lt_or_ge (q : Nat) (k + 1) with h | h
-  · exact hmax p q (by omega) (by omega)
+  · exact hmax p q (by lia) (by lia)
   · exact hsort p q hp h
 
 /-- The prefix maximum at `0` is trivial: `w[0] ≥ w[0]`. -/
-private lemma maxAt_zero (le : α → α → Bool) (hrefl : ∀ a, le a a = true) (w : Vector α n) :
-    MaxAt le w 0 := fun p q hp hq => by obtain rfl : p = q := by ext; omega
-                                        exact hrefl _
+private lemma maxAt_zero (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
+    (w : Vector α n) : MaxAt le w 0 := by
+  intro p q hp hq
+  obtain rfl : p = q := by ext; lia
+  exact (Std.Total.total (r := fun a b : α => le a b = true) w[p] w[p]).elim id id
 
 /-- `SortedFrom le w 0` is exactly sortedness of the underlying list. -/
 private lemma sortedFrom_zero_pairwise {le : α → α → Bool} {w : Vector α n}
@@ -155,10 +163,10 @@ private lemma sortedFrom_zero_pairwise {le : α → α → Bool} {w : Vector α 
   rw [List.pairwise_iff_getElem]
   intro i j hi hj _
   simpa [Vector.getElem_toList] using
-    h ⟨i, by simpa using hi⟩ ⟨j, by simpa using hj⟩ (by simp; omega) (Nat.zero_le _)
+    h ⟨i, by simpa using hi⟩ ⟨j, by simpa using hj⟩ (by simp; lia) (Nat.zero_le _)
 
-private lemma sub_one_sub_add (k : Nat) (h : k < n) : n - 1 - k + 1 = n - k := by omega
-private lemma sub_succ (k : Nat) : n - (k + 1) = n - 1 - k := by omega
+private lemma sub_one_sub_add (k : Nat) (h : k < n) : n - 1 - k + 1 = n - k := by lia
+private lemma sub_succ (k : Nat) : n - (k + 1) = n - 1 - k := by lia
 
 /-! ### Hoare specs via `mvcgen`
 
@@ -173,17 +181,12 @@ theorem bubblePass_spec (le : α → α → Bool) [Std.Total (fun a b : α => le
     (bound : Nat) (hb : bound < n) (v : Vector α n) (hpre : SortedFrom le v (bound + 1)) :
     ⦃⌜True⌝⦄ bubblePass le bound hb v
       ⦃⇓w => ⌜MaxAt le w bound ∧ SortedFrom le w (bound + 1) ∧ w.toList.Perm v.toList⌝⦄ := by
-  have htot : ∀ a b : α, le a b = true ∨ le b a = true :=
-    fun a b => Std.Total.total (r := fun a b : α => le a b = true) a b
-  have htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true :=
-    fun a b c => IsTrans.trans (r := fun a b => le a b = true) a b c
-  have hrefl : ∀ a, le a a = true := fun a => (htot a a).elim id id
   mvcgen [bubblePass] invariants
     · ⇓⟨xs, w⟩ => ⌜MaxAt le w xs.prefix.length ∧ SortedFrom le w (bound + 1)
         ∧ w.toList.Perm v.toList⌝
   case vc3.pre =>
     simp only [List.length_nil]
-    exact ⟨maxAt_zero le hrefl v, hpre, List.Perm.refl _⟩
+    exact ⟨maxAt_zero le v, hpre, List.Perm.refl _⟩
   case vc4.post.success =>
     obtain ⟨h1, h2, h3⟩ := ‹MaxAt le _ _ ∧ SortedFrom le _ _ ∧ List.Perm _ _›
     rw [List.length_finRange] at h1
@@ -195,7 +198,7 @@ theorem bubblePass_spec (le : α → α → Bool) [Std.Total (fun a b : α => le
     have hcmp := ‹(!le _ _) = true›
     simp only [Vec.hasModel_model, Bool.not_eq_true',
       List.length_append, List.length_cons, List.length_nil, ← hc] at hmax hcmp hcb ⊢
-    exact ⟨maxAt_swap le htot _ _ (by grind) hmax hcmp,
+    exact ⟨maxAt_swap le _ _ (by grind) hmax hcmp,
       sortedFrom_swap le _ _ _ (by grind) (by grind) hsort,
       (set_set_toList_perm _ _ _ (by grind) (by grind)).trans hperm⟩
   case vc2.step.isFalse =>
@@ -206,7 +209,7 @@ theorem bubblePass_spec (le : α → α → Bool) [Std.Total (fun a b : α => le
     simp only [Vec.hasModel_model, Bool.not_eq_true,
       Bool.not_eq_false', List.length_append, List.length_cons, List.length_nil, ← hc]
       at hmax hns hcb ⊢
-    exact ⟨maxAt_noswap le htot htr _ _ (by omega) hmax hns, hsort, hperm⟩
+    exact ⟨maxAt_noswap le _ _ (by lia) hmax hns, hsort, hperm⟩
 
 set_option mvcgen.warning false in
 /-- `bubbleSort` is correct: it sorts and permutes its input (for a total, transitive `le`). -/
@@ -228,7 +231,7 @@ theorem bubbleSort_spec (le : α → α → Bool) [Std.Total (fun a b : α => le
     exact ⟨by simp only [List.length_append, List.length_cons, List.length_nil]; rwa [sub_succ],
       hperm.trans hperm0⟩
   case vc3.pre =>
-    exact ⟨fun p q _ hq => absurd (by simpa using hq) (by have := q.isLt; omega), List.Perm.refl _⟩
+    exact ⟨fun p q _ hq => absurd (by simpa using hq) (by have := q.isLt; lia), List.Perm.refl _⟩
   case vc4.post.success =>
     obtain ⟨h1, h2⟩ := ‹SortedFrom le _ _ ∧ List.Perm _ _›
     rw [List.length_finRange, Nat.sub_self] at h1
