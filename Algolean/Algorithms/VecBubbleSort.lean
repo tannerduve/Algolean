@@ -106,28 +106,22 @@ private lemma set_set_toList_perm (w : Vector α n) (i j : Nat) (hi : i < n) (hj
     List.set_set_perm (as := w.toList) (by simpa using hi) (by simpa using hj)
 
 /-- After swapping out-of-order `w[m], w[m+1]`, the prefix maximum moves to `m+1`. -/
-private lemma maxAt_swap (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
+private lemma maxAt_swap (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
     (w : Vector α n) (m : Nat) (hm : m + 1 < n) (hmax : MaxAt le w m)
     (hsw : le (w[m]'(by lia)) (w[m + 1]'hm) = false) :
     MaxAt le ((w.set m (w[m + 1]'hm) (by lia)).set (m + 1) (w[m]'(by lia)) hm) (m + 1) := by
   intro p q hp hq
-  have htot : ∀ a b : α, le a b = true ∨ le b a = true :=
-    Std.Total.total (r := fun a b : α => le a b = true)
   have hcmp := (htot (w[m]'(by lia)) (w[m + 1]'hm)).resolve_left (by simp [hsw])
   have key : ∀ r : Fin n, (r : Nat) ≤ m → le w[r] (w[m]'(by lia)) = true :=
     fun r hr => hmax r ⟨m, by lia⟩ hr rfl
   grind
 
 /-- When the pair is already in order, the prefix maximum still extends to `m+1`. -/
-private lemma maxAt_noswap (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
-    [IsTrans α (fun a b => le a b = true)]
+private lemma maxAt_noswap (le : α → α → Bool) (htot : ∀ a b : α, le a b = true ∨ le b a = true)
+    (htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true)
     (w : Vector α n) (m : Nat) (hm : m + 1 < n) (hmax : MaxAt le w m)
     (hns : le (w[m]'(by lia)) (w[m + 1]'hm) = true) : MaxAt le w (m + 1) := by
   intro p q hp hq
-  have htot : ∀ a b : α, le a b = true ∨ le b a = true :=
-    Std.Total.total (r := fun a b : α => le a b = true)
-  have htr : ∀ a b c : α, le a b = true → le b c = true → le a c = true :=
-    fun a b c => IsTrans.trans (r := fun a b : α => le a b = true) a b c
   have key : ∀ r : Fin n, (r : Nat) ≤ m → le w[r] (w[m]'(by lia)) = true :=
     fun r hr => hmax r ⟨m, by lia⟩ hr rfl
   grind
@@ -151,11 +145,11 @@ private lemma sortedFrom_of_maxAt (le : α → α → Bool) (w : Vector α n) (k
   · exact hsort p q hp h
 
 /-- The prefix maximum at `0` is trivial: `w[0] ≥ w[0]`. -/
-private lemma maxAt_zero (le : α → α → Bool) [Std.Total (fun a b : α => le a b = true)]
-    (w : Vector α n) : MaxAt le w 0 := by
+private lemma maxAt_zero (le : α → α → Bool) (hrefl : ∀ a, le a a = true) (w : Vector α n) :
+    MaxAt le w 0 := by
   intro p q hp hq
   obtain rfl : p = q := by ext; lia
-  exact (Std.Total.total (r := fun a b : α => le a b = true) w[p] w[p]).elim id id
+  exact hrefl _
 
 /-- `SortedFrom le w 0` is exactly sortedness of the underlying list. -/
 private lemma sortedFrom_zero_pairwise {le : α → α → Bool} {w : Vector α n}
@@ -186,7 +180,8 @@ theorem bubblePass_spec (le : α → α → Bool) [Std.Total (fun a b : α => le
         ∧ w.toList.Perm v.toList⌝
   case vc3.pre =>
     simp only [List.length_nil]
-    exact ⟨maxAt_zero le v, hpre, List.Perm.refl _⟩
+    exact ⟨maxAt_zero le (Std.Refl.refl (r := fun a b : α => le a b = true)) v,
+      hpre, List.Perm.refl _⟩
   case vc4.post.success =>
     obtain ⟨h1, h2, h3⟩ := ‹MaxAt le _ _ ∧ SortedFrom le _ _ ∧ List.Perm _ _›
     rw [List.length_finRange] at h1
@@ -198,7 +193,7 @@ theorem bubblePass_spec (le : α → α → Bool) [Std.Total (fun a b : α => le
     have hcmp := ‹(!le _ _) = true›
     simp only [Vec.hasModel_model, Bool.not_eq_true',
       List.length_append, List.length_cons, List.length_nil, ← hc] at hmax hcmp hcb ⊢
-    exact ⟨maxAt_swap le _ _ (by grind) hmax hcmp,
+    exact ⟨maxAt_swap le Std.Total.total _ _ (by grind) hmax hcmp,
       sortedFrom_swap le _ _ _ (by grind) (by grind) hsort,
       (set_set_toList_perm _ _ _ (by grind) (by grind)).trans hperm⟩
   case vc2.step.isFalse =>
@@ -209,7 +204,7 @@ theorem bubblePass_spec (le : α → α → Bool) [Std.Total (fun a b : α => le
     simp only [Vec.hasModel_model, Bool.not_eq_true,
       Bool.not_eq_false', List.length_append, List.length_cons, List.length_nil, ← hc]
       at hmax hns hcb ⊢
-    exact ⟨maxAt_noswap le _ _ (by lia) hmax hns, hsort, hperm⟩
+    exact ⟨maxAt_noswap le Std.Total.total IsTrans.trans _ _ (by lia) hmax hns, hsort, hperm⟩
 
 set_option mvcgen.warning false in
 /-- `bubbleSort` is correct: it sorts and permutes its input (for a total, transitive `le`). -/
