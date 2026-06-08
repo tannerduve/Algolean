@@ -11,9 +11,7 @@ public import Cslib.Foundations.Control.Monad.Free
 public import Algolean.AddWriter.Basic
 public import Algolean.FreeWP.WP
 
-@[expose] public section
-
-/-
+/-!
 # Query model
 
 This file defines a simple query language modeled as a free monad over a
@@ -44,8 +42,9 @@ and complexity of algorithms in lean. To specify an algorithm, one must:
 query model, free monad, time complexity, Prog
 -/
 
-namespace Algolean
-namespace Algorithms
+@[expose] public section
+
+namespace Algolean.Algorithms
 
 open Cslib
 /--
@@ -197,7 +196,7 @@ section FreeMExtras
 
 This section contain extras needed for this repo to work until FreeM is fixed upstream
 -/
-instance {Q α} : CoeOut (Q α) (FreeM Q α) where
+instance instCoeOutFreeM {Q α} : CoeOut (Q α) (FreeM Q α) where
   coe := FreeM.lift
 
 @[simp, grind =]

@@ -8,10 +8,8 @@ module
 
 public import Algolean.QueryModel
 public import Algolean.Models.Quantum.Embed
-public import QuantumInfo.Finite.MState
-public import QuantumInfo.Finite.POVM
-
-@[expose] public section
+public import QuantumInfo.States.Mixed.MState
+public import QuantumInfo.Measurements.POVM
 
 /-!
 # Quantum Oracle Query Model
@@ -50,6 +48,8 @@ Phase parameters are rational (`θ : ℚ`). The semantic interpretation is
 `exp(2πi·θ)`, so "quarter turn" is `θ = 1/4`. This keeps the syntax
 uniformity-compatible without restricting expressive power for algorithms.
 -/
+
+@[expose] public section
 
 namespace Algolean
 
