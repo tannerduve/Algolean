@@ -203,6 +203,41 @@ theorem applyGate_time [AddZeroClass Cost] {n : ℕ}
     (applyGate q ρ).time M = M.cost q := by
   simp [applyGate]
 
+/-! ### State-entry lemmas -/
+
+@[simp]
+theorem complex_mul_star_eq_normSq (z : ℂ) :
+    z * star z = (Complex.normSq z : ℂ) := by
+  rw [RCLike.star_def, Complex.mul_conj]
+
+@[simp]
+theorem complex_mul_star_re_eq_normSq (z : ℂ) :
+    (z * star z).re = Complex.normSq z := by
+  rw [complex_mul_star_eq_normSq]
+  simp
+
+/-- Conjugating a computational-basis pure state by `U` produces the outer
+product of the `b`-th column of `U`: the `(i,j)` entry is
+`U i b * star (U j b)`. -/
+theorem U_conj_pure_basis_apply {d : Type*} [Fintype d] [DecidableEq d]
+    (U : 𝐔[d]) (b i j : d) :
+    (U ◃ MState.pure (Ket.basis b)).m i j =
+      U i b * star (U j b) := by
+  simp only [MState.U_conj, MState.m, HermitianMat.conj_apply_mat]
+  simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, MState.pure,
+    HermitianMat.mat_mk, Matrix.vecMulVec_apply, Ket.basis, Bra.eq_conj]
+  rw [Finset.sum_eq_single b]
+  · rw [Finset.sum_eq_single b]
+    · simp [Ket.apply]
+    · intro x _ hx
+      simp [Ket.apply, Ne.symm hx]
+    · intro h
+      exact absurd (Finset.mem_univ b) h
+  · intro x _ hx
+    simp [Ket.apply, Ne.symm hx]
+  · intro h
+    exact absurd (Finset.mem_univ b) h
+
 /-! ### Measurement -/
 
 /-- Indicator function on bitstrings: `1` if qubit `q` is in state `v`, else `0`. -/
