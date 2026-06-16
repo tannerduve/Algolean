@@ -44,13 +44,6 @@ namespace Algorithms
 
 open scoped Matrix
 
-/-- Every value of `Fin 2` is the bit `0` or the bit `1`. -/
-lemma fin2_eq_zero_or_one (b : Fin 2) : b = 0 ∨ b = 1 := by
-  have hb : b.val = 0 ∨ b.val = 1 := by omega
-  rcases hb with hb | hb
-  · exact Or.inl (Fin.ext hb)
-  · exact Or.inr (Fin.ext hb)
-
 /-! ### Transport of unitaries along index equivalences -/
 
 /-- Transport a unitary through a type equivalence. For `e : d ≃ d₂` and
