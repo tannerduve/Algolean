@@ -205,12 +205,10 @@ theorem applyGate_time [AddZeroClass Cost] {n : ℕ}
 
 /-! ### State-entry lemmas -/
 
-@[simp]
 theorem complex_mul_star_eq_normSq (z : ℂ) :
     z * star z = (Complex.normSq z : ℂ) := by
   rw [RCLike.star_def, Complex.mul_conj]
 
-@[simp]
 theorem complex_mul_star_re_eq_normSq (z : ℂ) :
     (z * star z).re = Complex.normSq z := by
   rw [complex_mul_star_eq_normSq]
@@ -301,7 +299,6 @@ noncomputable def computationalBasisProjector {n : ℕ} (x : Fin n → Fin 2) :
     HermitianMat (Fin n → Fin 2) ℂ :=
   HermitianMat.diagonal ℂ (basisIndicator x)
 
-@[simp]
 theorem computationalBasisProjector_mat_apply {n : ℕ}
     (x y z : Fin n → Fin 2) :
     (computationalBasisProjector x).mat y z =
@@ -357,7 +354,6 @@ noncomputable def measureRegisterPOVM (n : ℕ) :
     split_ifs <;> simp
   normalized := computationalBasisProjector_sum
 
-@[simp]
 theorem measureRegisterPOVM_measure_pure_apply_coe {n : ℕ}
     (ψ : Ket (Fin n → Fin 2)) (x : Fin n → Fin 2) :
     (((measureRegisterPOVM n).measure (MState.pure ψ)) x : ℝ) =
